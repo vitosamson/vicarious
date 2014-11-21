@@ -1,0 +1,22 @@
+{
+  "name": "vicarious",
+  "version": "0.0.0",
+  "authors": [
+    "Vito <vslavilla@gmail.com>"
+  ],
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "adapter.js": "*",
+    "peerjs": "~0.3.14",
+    "threex.videotexture": "https://github.com/vitosamson/threex.videotexture.git",
+    "threejs": "*"
+  }
+}
