@@ -11,8 +11,9 @@ var scene, camera, renderer,
 var peer,
     destInput = document.getElementById('dest'),
     go = document.getElementById('go'),
+    disconnect = document.getElementById('disconnect'),
     video = document.createElement('video'),
-    localStream, conn;
+    localStream, connection;
 
 initMedia();
 initThree();
@@ -92,17 +93,28 @@ function initPeering() {
   });
 
   peer.on('connection', function(conn) {
-    conn.on('open', function() {
+    connection = conn;
+
+    connection.on('open', function() {
       console.log('Connection has been opened');
 
-      conn.on('data', function(data) {
+      connection.on('data', function(data) {
         console.log(data);
+      });
+
+      connection.on('close', function() {
+        console.log('connection closed');
+        container.removeChild(container.children[0]);
+        disconnect.disabled = true;
       });
     });
   });
 
   peer.on('call', function(call) {
     console.log('got a call');
+    disconnect.disabled = false;
+    go.disabled = true;
+
     if (localStream)
       call.answer(localStream);
 
@@ -116,8 +128,9 @@ function initPeering() {
 
   go.onclick = function() {
     var dest = destInput.value;
+    go.disabled = true;
 
-    conn = peer.connect(dest);
+    connection = peer.connect(dest);
 
     if (localStream)
       peer.call(dest, localStream)
@@ -125,10 +138,18 @@ function initPeering() {
         console.log('got a stream');
         video.src = window.URL.createObjectURL(remoteStream);
         container.appendChild(element);
+        disconnect.disabled = false;
         render();
       });
 
     console.log('Connecting to %s', dest);
+  };
+
+  disconnect.onclick = function() {
+    connection.close();
+    container.removeChild(container.children[0]);
+    disconnect.disabled = true;
+    go.disabled = false;
   };
 }
 
