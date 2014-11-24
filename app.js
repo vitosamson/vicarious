@@ -1,19 +1,22 @@
-/* global Peer, THREE, THREEx */
+/* global Peer, THREE */
 'use strict';
 
 // THREE vars
 var scene, camera, renderer,
     cube, effect, element,
     texture,
-    container = document.body;
+    container = document.getElementById('container');
 
 // RTC vars
-var peer = new Peer({key: 'lwjd5qra8257b9'}),
+var peer,
     destInput = document.getElementById('dest'),
     go = document.getElementById('go'),
-    // remoteVideo = document.getElementById('remote'),
     video = document.createElement('video'),
-    localStream, remoteStream, conn;
+    localStream, conn;
+
+initMedia();
+initThree();
+initPeering();
 
 function initMedia() {
   navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
@@ -22,17 +25,35 @@ function initMedia() {
   video.width = 1024;
   video.height = 768;
   video.autoplay = true;
+  video.loop = true;
 
-  // Get the local media stream
-  navigator.getUserMedia({
-    video: true,
-    // audio: true
-  }, function(mediaStream) {
-    localStream = mediaStream;
-    destInput.disabled = false;
-    go.disabled = false;
-  }, function(err) {
-    console.error(err);
+  // Find the outward facing camera
+  window.MediaStreamTrack.getSources(function(srcs) {
+    var cams = srcs.filter(function(stream) {
+      return stream.kind == 'video' && stream.facing == 'environment';
+    });
+    var opts = {
+      audio: false
+    };
+
+    // Can't find an environment camera
+    if (cams.length < 1) {
+      opts.video = true;
+    }
+    // Found an environment camera
+    else {
+      opts.video = {
+        optional: [{sourceId: cams[0].id }]
+      };
+    }
+
+    navigator.getUserMedia(opts, function(mediaStream) {
+      localStream = mediaStream;
+      destInput.disabled = false;
+      go.disabled = false;
+    }, function(err) {
+      console.error(err);
+    }); 
   });
 }
 
@@ -49,9 +70,9 @@ function initThree() {
   effect.setSize(window.innerWidth, window.innerHeight);
 
   var geometry = new THREE.BoxGeometry(300, 300, 300);
-  texture = new THREE.Texture(remoteStream);
+  texture = new THREE.Texture(video);
 
-  var material = new THREE.MeshBasicMaterial({ map: texture.texture });
+  var material = new THREE.MeshBasicMaterial({ map: texture });
   cube = new THREE.Mesh(geometry, material);
   scene.add(cube);
 
@@ -59,9 +80,61 @@ function initThree() {
   scene.add(camera);
 
   window.addEventListener('resize', onResize, false);
+  container.addEventListener('click', fullscreen, false);
+}
 
+function initPeering() {
+  peer = new Peer({key: 'lwjd5qra8257b9'});
+
+  peer.on('open', function(id) {
+    console.log(id);
+    document.getElementById('myId').innerText = id;
+  });
+
+  peer.on('connection', function(conn) {
+    conn.on('open', function() {
+      console.log('Connection has been opened');
+
+      conn.on('data', function(data) {
+        console.log(data);
+      });
+    });
+  });
+
+  peer.on('call', function(call) {
+    console.log('got a call');
+    if (localStream)
+      call.answer(localStream);
+
+    call.on('stream', function(remoteStream) {
+      console.log('got a stream');
+      video.src = window.URL.createObjectURL(remoteStream);
+      container.appendChild(element);
+      render();
+    });
+  });
+
+  go.onclick = function() {
+    var dest = destInput.value;
+
+    conn = peer.connect(dest);
+
+    if (localStream)
+      peer.call(dest, localStream)
+      .on('stream', function(remoteStream) {
+        console.log('got a stream');
+        video.src = window.URL.createObjectURL(remoteStream);
+        container.appendChild(element);
+        render();
+      });
+
+    console.log('Connecting to %s', dest);
+  };
+}
+
+function fullscreen() {
   container.requestFullscreen = container.requestFullscreen || container.webkitRequestFullscreen || container.mozRequestFullscreen || container.msRequestFullscreen;
-  // container.requestFullscreen();
+  container.requestFullscreen();
 }
 
 function onResize() {
@@ -72,54 +145,12 @@ function onResize() {
   effect.setSize(window.innerWidth, window.innerHeight);
 }
 
-var lastTimeMsec = null;
-function render(nowMsec) {
+function render() {
   requestAnimationFrame(render);
 
-  lastTimeMsec = lastTimeMsec || nowMsec-1000/60;
-  var deltaMsec = Math.min(200, nowMsec - lastTimeMsec);
-  lastTimeMsec = nowMsec;
+  if (video.readyState == video.HAVE_ENOUGH_DATA)
+    texture.needsUpdate = true;
 
-  texture.update(deltaMsec/1000, nowMsec/1000);
   renderer.render(scene, camera);
   effect.render(scene, camera);
 }
-
-peer.on('open', function(id) {
-  console.log(id);
-  document.getElementById('myId').innerText = id;
-});
-
-go.onclick = function() {
-  var dest = destInput.value;
-
-  conn = peer.connect(dest);
-
-  if (stream)
-    peer.call(dest, stream)
-    .on('stream', function(remoteStream) {
-      remoteVideo.src = window.URL.createObjectURL(remoteStream);
-    });
-
-  console.log('Connecting to %s', dest);
-};
-
-peer.on('connection', function(conn) {
-  conn.on('open', function() {
-    console.log('Connection has been opened');
-
-    conn.on('data', function(data) {
-      console.log(data);
-    });
-  });
-});
-
-peer.on('call', function(call) {
-  console.log('got a call');
-  if (stream)
-    call.answer(stream);
-
-  call.on('stream', function(remoteStream) {
-    remoteVideo.src = window.URL.createObjectURL(remoteStream);
-  });
-});
