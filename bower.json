@@ -17,6 +17,7 @@
     "adapter.js": "*",
     "peerjs": "~0.3.14",
     "threex.videotexture": "https://github.com/vitosamson/threex.videotexture.git",
-    "threejs": "*"
+    "threejs": "*",
+    "jquery": "~2.1.1"
   }
 }

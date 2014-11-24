@@ -2,27 +2,29 @@
   <head>
     <script src="bower_components/peerjs/peer.min.js"></script>
     <script src="bower_components/threejs/build/three.min.js"></script>
-    <script src="bower_components/threex.videotexture/threex.webcamtexture.js"></script>
+    <script src="bower_components/jquery/dist/jquery.min.js"></script>
     <script src="StereoEffect.js"></script>
-    <!-- // <script src="bower_components/adapter.js/samples/web/js/adapter.js"></script> -->
+    
+    <style>
+      select {
+        width: 150px;
+      }
+    </style>
   </head>
 
   <body>
-    Your ID:
-    <span id="myId"></span>
+    <form id="regForm">
+      <label>Your name:</label>
+      <input type="text" name="name" id="name">
+      <button type="submit" id="regBtn">Register</button>
+    </form>
 
-    <br>
-
-    Connect to:
-    <input type="text" id="dest" disabled>
-    <button id="go" disabled>Go</button>
-
+    Available users:
+    <select id="users" size="6"></select>
+    <button id="connect" disabled>Connect</button>
     <button id="disconnect" disabled>Disconnect</button>
 
     <br>
-
-    <!-- <video id="local" autoplay height="300" width="300"></video> -->
-    <!-- <video id="remote" autoplay height="300" width="300"></video> -->
 
     <div id="container"></div>
 

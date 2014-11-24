@@ -1,4 +1,4 @@
-/* global Peer, THREE */
+/* global Peer, THREE, $ */
 'use strict';
 
 // THREE vars
@@ -8,9 +8,7 @@ var scene, camera, renderer,
     container = document.getElementById('container');
 
 // RTC vars
-var peer,
-    destInput = document.getElementById('dest'),
-    go = document.getElementById('go'),
+var peer, myId,
     disconnect = document.getElementById('disconnect'),
     video = document.createElement('video'),
     localStream, connection;
@@ -18,6 +16,7 @@ var peer,
 initMedia();
 initThree();
 initPeering();
+getUsers();
 
 function initMedia() {
   navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
@@ -50,8 +49,6 @@ function initMedia() {
 
     navigator.getUserMedia(opts, function(mediaStream) {
       localStream = mediaStream;
-      destInput.disabled = false;
-      go.disabled = false;
     }, function(err) {
       console.error(err);
     }); 
@@ -89,7 +86,7 @@ function initPeering() {
 
   peer.on('open', function(id) {
     console.log(id);
-    document.getElementById('myId').innerText = id;
+    myId = id;
   });
 
   peer.on('connection', function(conn) {
@@ -113,7 +110,6 @@ function initPeering() {
   peer.on('call', function(call) {
     console.log('got a call');
     disconnect.disabled = false;
-    go.disabled = true;
 
     if (localStream)
       call.answer(localStream);
@@ -126,30 +122,16 @@ function initPeering() {
     });
   });
 
-  go.onclick = function() {
-    var dest = destInput.value;
-    go.disabled = true;
+  $('#connect').click(function() {
+    var dest = $('#users').val();
 
-    connection = peer.connect(dest);
-
-    if (localStream)
-      peer.call(dest, localStream)
-      .on('stream', function(remoteStream) {
-        console.log('got a stream');
-        video.src = window.URL.createObjectURL(remoteStream);
-        container.appendChild(element);
-        disconnect.disabled = false;
-        render();
-      });
-
-    console.log('Connecting to %s', dest);
-  };
+    connect(dest);
+  });
 
   disconnect.onclick = function() {
     connection.close();
     container.removeChild(container.children[0]);
     disconnect.disabled = true;
-    go.disabled = false;
   };
 }
 
@@ -175,3 +157,62 @@ function render() {
   renderer.render(scene, camera);
   effect.render(scene, camera);
 }
+
+function getUsers() {
+  var userList = document.getElementById('users');
+
+  $.get('/users', function(users) {
+    users.forEach(function(user) {
+      var el = document.createElement('option');
+      el.value = user.peerId;
+      el.innerText = user.name;
+      el.onclick = function() {
+        $('#connect').attr('disabled', false);
+      };
+
+      userList.appendChild(el);
+    });
+  });
+}
+
+function connect(dest) {
+  connection = peer.connect(dest);
+
+  if (localStream && peer) {
+    peer.call(dest, localStream)
+    .on('stream', function(remoteStream) {
+      console.log('got a stream');
+      video.src = window.URL.createObjectURL(remoteStream);
+      container.appendChild(element);
+      disconnect.disabled = false;
+      render();
+    });
+  }
+
+  console.log('Connecting to %s', dest);
+}
+
+$('#regForm').submit(function(e) {
+  e.preventDefault();
+
+  var myName = $('#name');
+
+  $.post('/users', {
+    peerId: myId,
+    name: myName.val()
+  }, function() {
+    console.log('registered');
+
+    myName.attr('disabled', true);
+    $('#regBtn').attr('disabled', true);
+  });
+});
+
+$(window).unload(function() {
+  $.ajax('/users', {
+    type: 'DELETE',
+    data: {
+      peerId: myId
+    }
+  });
+});
